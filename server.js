@@ -170,6 +170,30 @@ app.delete('/cart', async (req, res) => {
         res.status(500).json({ message: 'Error clearing cart' });
     }
 });
+// Reviews API - Get reviews for a specific product
+app.get('/products/:id/reviews', async (req, res) => {
+  const productId = req.params.id; // Get the product ID from the URL parameters
+
+  try {
+      const database = client.db('e_store'); // Connect to the database
+      const products = database.collection('products'); // Get the products collection
+
+      // Find the product by its ID and project only the reviews field
+      const product = await products.findOne(
+          { _id: new ObjectId(productId) }, 
+          { projection: { reviews: 1 } } // Project only the reviews field
+      );
+
+      if (product && product.reviews) {
+          res.json(product.reviews); // Return the reviews if found
+      } else {
+          res.status(404).json({ message: 'Product or reviews not found' }); // If product or reviews are not found
+      }
+  } catch (error) {
+      console.error('Error fetching reviews:', error); // Log the error for debugging
+      res.status(500).json({ message: 'Error fetching reviews' }); // Return error message
+  }
+});
 
 // Reviews API - Add a new review to a specific product
 app.post('/products/:id/reviews', async (req, res) => {
