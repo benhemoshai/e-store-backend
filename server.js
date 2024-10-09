@@ -171,6 +171,32 @@ app.delete('/cart', async (req, res) => {
     }
 });
 
+// Reviews API - Add a new review to a specific product
+app.post('/products/:id/reviews', async (req, res) => {
+  const productId = req.params.id; // Get the product ID from the URL parameters
+  const { rating, comment } = req.body; // Destructure the review data
+  const date = new Date(); // Get the current date
+
+  try {
+      const database = client.db('e_store'); // Connect to the database
+      const products = database.collection('products'); // Get the products collection
+
+      // Update the product document to add the review
+      const result = await products.updateOne(
+          { _id: new ObjectId(productId) }, // Find the product by ID
+          { $push: { reviews: { rating, comment, date } } } // Push the new review into the reviews array
+      );
+
+      if (result.modifiedCount === 1) {
+          res.status(201).json({ message: 'Review added successfully' });
+      } else {
+          res.status(404).json({ message: 'Product not found' }); // If product not found
+      }
+  } catch (error) {
+      console.error('Error adding review:', error); // Log the error for debugging
+      res.status(500).json({ message: 'Error adding review' }); // Return error message
+  }
+});
 
 // Connect to MongoDB and start the server
 connectToMongoDB().then(() => {
