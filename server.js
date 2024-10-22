@@ -198,7 +198,7 @@ app.get('/products/:id/reviews', async (req, res) => {
 // Reviews API - Add a new review to a specific product
 app.post('/products/:id/reviews', async (req, res) => {
   const productId = req.params.id; // Get the product ID from the URL parameters
-  const { rating, comment } = req.body; // Destructure the review data
+  const { name,rating, comment } = req.body; // Destructure the review data
   const date = new Date(); // Get the current date
 
   try {
@@ -208,7 +208,7 @@ app.post('/products/:id/reviews', async (req, res) => {
       // Update the product document to add the review
       const result = await products.updateOne(
           { _id: new ObjectId(productId) }, // Find the product by ID
-          { $push: { reviews: { rating, comment, date } } } // Push the new review into the reviews array
+          { $push: { reviews: { name,rating, comment, date } } } // Push the new review into the reviews array
       );
 
       if (result.modifiedCount === 1) {
