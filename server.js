@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { MongoClient, ObjectId } from 'mongodb';
 import * as dotenv from 'dotenv';
-import bcrypt from 'bcrypt'; // Import bcrypt for password hashing
+import bcrypt from 'bcryptjs'; // Import bcrypt for password hashing
 
 dotenv.config();
 
@@ -19,6 +19,9 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+
+
 
 
 // Middleware
