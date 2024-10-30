@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { MongoClient, ObjectId } from 'mongodb';
 import * as dotenv from 'dotenv';
+import bcrypt from 'bcrypt'; // Import bcrypt for password hashing
 
 dotenv.config();
 
@@ -24,14 +25,87 @@ const PORT = process.env.PORT || 3000;
 app.use(bodyParser.json());
 app.use(cors());
 
-// Serve static files (images)
-app.use('/images', express.static(path.join(__dirname, '/images')));
 
 // Helper function to connect to MongoDB
 async function connectToMongoDB() {
     await client.connect();
     console.log('Connected to MongoDB');
 }
+
+// User Registration API
+app.post('/register', async (req, res) => {
+    const { userName, email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+        return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    try {
+        const database = client.db('e_store');
+        const users = database.collection('users');
+
+        // Check if the user already exists
+        const existingUser = await users.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'User already exists' });
+        }
+
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create a new user object
+        const newUser = {
+            userName,
+            email,
+            password: hashedPassword, // Store hashed password
+        };
+
+        // Insert the new user into the database
+        const result = await users.insertOne(newUser);
+
+        res.status(201).json({ 
+            message: 'User registered successfully', 
+            userId: result.insertedId, 
+            userName: newUser.userName // Use newUser.name instead of result.name
+        });
+    } catch (error) {
+        console.error('Error registering user:', error);
+        res.status(500).json({ message: 'Error registering user' });
+    }
+});
+
+// User Login API
+app.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    try {
+        const database = client.db('e_store');
+        const users = database.collection('users');
+
+        // Find the user by email
+        const user = await users.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid email or password' });
+        }
+
+        // Compare the provided password with the stored hashed password
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(400).json({ message: 'Invalid email or password' });
+        }
+
+        // Login successful
+        res.status(200).json({ message: 'Login successful', userId: user._id , userName: user.name});
+    } catch (error) {
+        console.error('Error logging in user:', error);
+        res.status(500).json({ message: 'Error logging in user' });
+    }
+});
 
 // Products API - Fetch products from MongoDB
 app.get('/products', async (req, res) => {
