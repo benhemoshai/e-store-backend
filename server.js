@@ -143,42 +143,46 @@ app.get('/products/:id', async (req, res) => {
 
 
 
-// Cart API - Get cart items
-app.get('/cart', async (req, res) => {
+// Cart API - Get cart items for a specific user
+app.get('/cart/:userId', async (req, res) => {
+    const userId = req.params.userId;
+
     try {
         const database = client.db('e_store');
         const cart = database.collection('cart');
 
-        // Fetch all cart items
-        const cartItems = await cart.find({}).toArray();
+        // Fetch cart items for the specific user
+        const cartItems = await cart.find({ userId: new ObjectId(userId) }).toArray();
         res.json(cartItems);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching cart items' });
     }
 });
 
-// Cart API - Add item to cart or update quantity if it exists
-app.post('/cart', async (req, res) => {
-    const cartItem = req.body; // The cart item sent from the frontend
-    const productId = cartItem.product._id; // Get the product ID
+// Cart API - Add or update item in the cart for a specific user
+app.post('/cart/:userId', async (req, res) => {
+    const userId = req.params.userId;
+    const cartItem = req.body; // Contains the product and quantity
+    const productId = cartItem.product._id;
 
     try {
         const database = client.db('e_store');
         const cart = database.collection('cart');
 
-        // Check if the product is already in the cart
-        const existingCartItem = await cart.findOne({ "product._id": productId });
+        // Check if the product is already in the user's cart
+        const existingCartItem = await cart.findOne({ "product._id": productId, userId: new ObjectId(userId) });
 
         if (existingCartItem) {
-            // If the item exists, update the quantity
+            // Update the quantity if item exists
             const updatedQuantity = existingCartItem.quantity + cartItem.quantity;
             await cart.updateOne(
-                { "product._id": productId },
+                { "product._id": productId, userId: new ObjectId(userId) },
                 { $set: { quantity: updatedQuantity } }
             );
             res.status(200).json({ message: 'Quantity updated', id: productId, quantity: updatedQuantity });
         } else {
-            // If the item doesn't exist, insert the new cart item
+            // Insert the new item if it doesn't exist
+            cartItem.userId = new ObjectId(userId); // Add userId to the cart item
             const result = await cart.insertOne(cartItem);
             res.status(201).json({ message: 'Item added to cart', id: result.insertedId });
         }
@@ -187,66 +191,72 @@ app.post('/cart', async (req, res) => {
     }
 });
 
-
-app.put('/cart/:id', async (req, res) => {
-    const { id } = req.params; // This is now the product ID
+// Cart API - Update quantity for a specific item in the user's cart
+app.put('/cart/:userId/:id', async (req, res) => {
+    const { userId, id } = req.params; // id here is product ID
     const updatedCartItem = req.body;
-  
-    try {
-      const database = client.db('e_store');
-      const cart = database.collection('cart');
-  
-      // Update the cart item in the collection
-      const result = await cart.updateOne(
-        { "product._id": id }, // Match the product ID in the cart
-        { $set: { quantity: updatedCartItem.quantity } } // Update the quantity
-      );
-  
-      if (result.modifiedCount === 1) {
-        res.status(200).json({ message: 'Cart item updated successfully' });
-      } else {
-        res.status(404).json({ message: 'Cart item not found' });
-      }
-    } catch (error) {
-      console.error('Error updating cart item:', error);
-      res.status(500).json({ message: 'Error updating cart item' });
-    }
-  });
 
-  app.delete('/cart/:id', async (req, res) => {
-    const { id } = req.params; // This is the product ID
-  
-    try {
-      const database = client.db('e_store');
-      const cart = database.collection('cart');
-  
-      const result = await cart.deleteOne({ "product._id": id });
-  
-      if (result.deletedCount === 1) {
-        res.status(200).json({ message: 'Item removed from cart successfully' });
-      } else {
-        res.status(404).json({ message: 'Cart item not found' });
-      }
-    } catch (error) {
-      console.error('Error removing item from cart:', error);
-      res.status(500).json({ message: 'Error removing item from cart' });
-    }
-  });
-
-
-app.delete('/cart', async (req, res) => {
     try {
         const database = client.db('e_store');
         const cart = database.collection('cart');
 
-        // Delete all items from the cart collection
-        await cart.deleteMany({});  // This will remove all documents in the collection
+        // Update the item quantity in the cart for this user
+        const result = await cart.updateOne(
+            { "product._id": id, userId: new ObjectId(userId) },
+            { $set: { quantity: updatedCartItem.quantity } }
+        );
+
+        if (result.modifiedCount === 1) {
+            res.status(200).json({ message: 'Cart item updated successfully' });
+        } else {
+            res.status(404).json({ message: 'Cart item not found' });
+        }
+    } catch (error) {
+        console.error('Error updating cart item:', error);
+        res.status(500).json({ message: 'Error updating cart item' });
+    }
+});
+
+// Cart API - Delete specific item from user's cart
+app.delete('/cart/:userId/:id', async (req, res) => {
+    const { userId, id } = req.params; // id is the product ID
+
+    try {
+        const database = client.db('e_store');
+        const cart = database.collection('cart');
+
+        const result = await cart.deleteOne({ "product._id": id, userId: new ObjectId(userId) });
+
+        if (result.deletedCount === 1) {
+            res.status(200).json({ message: 'Item removed from cart successfully' });
+        } else {
+            res.status(404).json({ message: 'Cart item not found' });
+        }
+    } catch (error) {
+        console.error('Error removing item from cart:', error);
+        res.status(500).json({ message: 'Error removing item from cart' });
+    }
+});
+
+// Cart API - Clear entire cart for a specific user
+app.delete('/cart/:userId', async (req, res) => {
+    const userId = req.params.userId;
+
+    try {
+        const database = client.db('e_store');
+        const cart = database.collection('cart');
+
+        // Delete all items for the user in the cart
+        await cart.deleteMany({ userId: new ObjectId(userId) });
 
         res.status(204).send(); // Send a 204 No Content status
     } catch (error) {
         res.status(500).json({ message: 'Error clearing cart' });
     }
 });
+
+
+
 // Reviews API - Get reviews for a specific product
 app.get('/products/:id/reviews', async (req, res) => {
   const productId = req.params.id; // Get the product ID from the URL parameters
