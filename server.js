@@ -79,7 +79,7 @@ function isAuthenticated(req, res, next) {
         // Fetch the full user details from the database
         const user = await users.findOne({ _id: new ObjectId(req.session.user.id) }, { projection: { password: 0 } }); // Exclude password
         if (user) {
-          res.status(200).json({ user: { id: user._id, userName: user.name, email: user.email, role: user.role } });
+          res.status(200).json({ user: { id: user._id, userName: user.userName, email: user.email, role: user.role } });
         } else {
           res.status(404).json({ message: 'User not found' });
         }
@@ -222,6 +222,27 @@ app.put('/admin/products/:id', isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error updating product:', error);
     res.status(500).json({ message: 'Error updating product', error });
+  }
+});
+
+app.delete('/admin/products/:id', isAdmin, async (req, res) => {
+  const productId = req.params.id;
+
+  try {
+    const database = client.db('e_store');
+    const products = database.collection('products');
+
+    // Attempt to delete the product by its ID
+    const result = await products.deleteOne({ _id: new ObjectId(productId) });
+
+    if (result.deletedCount === 1) {
+      res.status(200).json({ message: 'Product deleted successfully' });
+    } else {
+      res.status(404).json({ message: 'Product not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    res.status(500).json({ message: 'Error deleting product', error });
   }
 });
 
