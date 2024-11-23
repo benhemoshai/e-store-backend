@@ -30,7 +30,7 @@ app.use(cors({
 }));
 app.use(
     session({
-        secret: process.env.SESSION_SECRET || 'your_secret_key',
+        secret: 1234,
         resave: false,
         saveUninitialized: false,
         store: MongoStore.create({
@@ -157,7 +157,7 @@ app.post('/login', async (req, res) => {
             id: user._id,
             role: user.role, // Store the user's role in the session
         };
-
+        console.log('Session after login:', req.session);  
         res.status(200).json({ message: 'Login successful', role: user.role });
     } catch (error) {
         console.error('Error logging in user:', error);
