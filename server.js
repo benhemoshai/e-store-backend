@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(bodyParser.json());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:4200',
+    origin: process.env.FRONTEND_URL || 'https://e-store-animalarts.vercel.app',
     credentials: true, // Allow cookies to be sent with requests
 }));
 app.use(
