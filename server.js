@@ -27,6 +27,8 @@ app.use(bodyParser.json());
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'https://e-store-frontend-pi.vercel.app',
     credentials: true, // Allow cookies to be sent with requests
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(
     session({
