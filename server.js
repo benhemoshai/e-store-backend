@@ -25,25 +25,29 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(bodyParser.json());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:4200',
-    credentials: true, // Allow cookies to be sent with requests
+  origin: process.env.FRONTEND_URL || 'http://localhost:4200',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(
-    session({
-        secret: 1234,
-        resave: false,
-        saveUninitialized: false,
-        store: MongoStore.create({
-            mongoUrl: process.env.MONGODB_URI,
-            collectionName: 'sessions',
-        }),
-        cookie: {
-            maxAge: 1000 * 60 * 60 * 24, // 1 day
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-        },
-    })
+  session({
+      secret: process.env.SESSION_SECRET || 'your-secret-key', // Don't use plain number
+      resave: false,
+      saveUninitialized: false,
+      store: MongoStore.create({
+          mongoUrl: process.env.MONGODB_URI,
+          collectionName: 'sessions',
+      }),
+      cookie: {
+          maxAge: 1000 * 60 * 60 * 24, // 1 day
+          httpOnly: true,
+          secure: true, // Always true for Render deployment
+          sameSite: 'none', // Change this to 'none' for cross-site cookies
+          domain: '.onrender.com' // Optional: might help with subdomain issues
+      },
+  })
 );
 
 // Connect to MongoDB
@@ -71,26 +75,40 @@ function isAuthenticated(req, res, next) {
   }
   
   app.get('/auth-check', async (req, res) => {
+    console.log('Auth check called, session:', req.session);
+    console.log('Session ID:', req.session.id);
+    console.log('User in session:', req.session?.user);
+
     if (req.session?.user?.id) {
-      try {
-        const database = client.db('e_store');
-        const users = database.collection('users');
-  
-        // Fetch the full user details from the database
-        const user = await users.findOne({ _id: new ObjectId(req.session.user.id) }, { projection: { password: 0 } }); // Exclude password
-        if (user) {
-          res.status(200).json({ user: { id: user._id, userName: user.userName, email: user.email, role: user.role } });
-        } else {
-          res.status(404).json({ message: 'User not found' });
+        try {
+            const database = client.db('e_store');
+            const users = database.collection('users');
+            const user = await users.findOne(
+                { _id: new ObjectId(req.session.user.id) },
+                { projection: { password: 0 } }
+            );
+            if (user) {
+                res.status(200).json({ 
+                    user: { 
+                        id: user._id, 
+                        userName: user.userName, 
+                        email: user.email, 
+                        role: user.role 
+                    },
+                    sessionId: req.session.id 
+                });
+            } else {
+                res.status(404).json({ message: 'User not found' });
+            }
+        } catch (error) {
+            console.error('Error in auth-check:', error);
+            res.status(500).json({ message: 'Error fetching user data' });
         }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        res.status(500).json({ message: 'Error fetching user data' });
-      }
     } else {
-      res.status(401).json({ message: 'Not authenticated' });
+        console.log('No user found in session');
+        res.status(401).json({ message: 'Not authenticated' });
     }
-  });
+});
   
 
   app.post('/register', async (req, res) => {
@@ -130,39 +148,52 @@ function isAuthenticated(req, res, next) {
 
 // User Login API
 app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+  console.log('Login attempt received:', req.body);
+  const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ message: 'All fields are required' });
-    }
+  if (!email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+  }
 
-    try {
-        const database = client.db('e_store');
-        const users = database.collection('users');
+  try {
+      const database = client.db('e_store');
+      const users = database.collection('users');
 
-        // Find the user by email
-        const user = await users.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid email or password' });
-        }
+      // Find the user by email
+      const user = await users.findOne({ email });
+      if (!user) {
+          return res.status(400).json({ message: 'Invalid email or password' });
+      }
 
-        // Compare the provided password with the stored hashed password
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(400).json({ message: 'Invalid email or password' });
-        }
+      // Compare the provided password with the stored hashed password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+          return res.status(400).json({ message: 'Invalid email or password' });
+      }
 
-        // Store user data in the session
-        req.session.user = {
-            id: user._id,
-            role: user.role, // Store the user's role in the session
-        };
-        console.log('Session after login:', req.session);  
-        res.status(200).json({ message: 'Login successful', role: user.role });
-    } catch (error) {
-        console.error('Error logging in user:', error);
-        res.status(500).json({ message: 'Error logging in user' });
-    }
+      // Store user data in the session
+      req.session.user = {
+          id: user._id,
+          role: user.role,
+      };
+      
+      // Add these debug logs
+      console.log('Session created:', req.session);
+      console.log('Session ID:', req.session.id);
+      console.log('Cookie settings:', req.session.cookie);
+
+      res.status(200).json({ 
+          message: 'Login successful', 
+          user: {
+              id: user._id,
+              role: user.role,
+              email: user.email
+          } 
+      });
+  } catch (error) {
+      console.error('Error logging in user:', error);
+      res.status(500).json({ message: 'Error logging in user' });
+  }
 });
 
 // User Logout API
