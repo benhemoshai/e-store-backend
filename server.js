@@ -15,36 +15,55 @@ dotenv.config();
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 
-// Define __dirname manually for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Important: Move CORS setup before session middleware
 app.use(bodyParser.json());
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:4200',
-    credentials: true, // Allow cookies to be sent with requests
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Updated session configuration for Render.com
 app.use(
     session({
-        secret: process.env.SESSION_SECRET,
+        secret: process.env.SESSION_SECRET || 'your-secret-key',
         resave: false,
         saveUninitialized: false,
         store: MongoStore.create({
             mongoUrl: process.env.MONGODB_URI,
             collectionName: 'sessions',
+            ttl: 24 * 60 * 60, // 1 day in seconds
+            autoRemove: 'native'
         }),
         cookie: {
-            maxAge: 1000 * 60 * 60 * 24, // 1 day
+            maxAge: 24 * 60 * 60 * 1000, // 1 day in milliseconds
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production', // Must be true on Render
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Must be 'none' for cross-origin on Render
+            domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined // Optional: specific to your domain
         },
+        proxy: true // Trust the reverse proxy
     })
 );
+
+// Add session debugging route
+app.get('/debug-session', (req, res) => {
+    res.json({
+        sessionID: req.sessionID,
+        session: req.session,
+        cookies: req.cookies,
+        user: req.session?.user || null
+    });
+});
+
+// Rest of your code remains the same...
 
 // Connect to MongoDB
 async function connectToMongoDB() {
