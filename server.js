@@ -30,7 +30,7 @@ app.use(cors({
 }));
 app.use(
     session({
-        secret: 1234,
+        secret: process.env.SESSION_SECRET,
         resave: false,
         saveUninitialized: false,
         store: MongoStore.create({
@@ -40,7 +40,7 @@ app.use(
         cookie: {
             maxAge: 1000 * 60 * 60 * 24, // 1 day
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: false,
             sameSite: 'lax',
         },
     })
