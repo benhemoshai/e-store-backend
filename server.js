@@ -30,7 +30,7 @@ app.use(cors({
 }));
 app.use(
     session({
-        secret: process.env.SESSION_SECRET || 1234,
+        secret: process.env.SESSION_SECRET,
         resave: false,
         saveUninitialized: false,
         store: MongoStore.create({
@@ -69,6 +69,14 @@ function isAuthenticated(req, res, next) {
       res.status(401).json({ message: 'Unauthorized. Please log in.' });
     }
   }
+
+  app.get('/debug-env', (req, res) => {
+    res.json({
+      MONGODB_URI: process.env.MONGODB_URI,
+      SESSION_SECRET: process.env.SESSION_SECRET,
+    });
+  });
+  
   
   app.get('/auth-check', async (req, res) => {
     if (req.session?.user?.id) {
