@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(bodyParser.json());
 app.use(cors({
-    origin: 'http://localhost:4200',
+    origin: 'https://e-store-frontend-pi.vercel.app/products',
     credentials: true, // Allow cookies to be sent with requests
 }));
 app.use(
