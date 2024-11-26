@@ -32,7 +32,7 @@ app.use(cors({
 app.use(
   session({
       secret: process.env.SESSION_SECRET,
-      resave: true,  // Changed to true
+      resave: true,
       saveUninitialized: false,
       store: MongoStore.create({
           mongoUrl: process.env.MONGODB_URI,
@@ -42,10 +42,10 @@ app.use(
       }),
       cookie: {
         maxAge: 1000 * 60 * 60 * 24, // 1 day
-        httpOnly: false,   // Changed to true
-        secure: false, // Conditionally set secure
-        sameSite: 'lax',
-    },
+        httpOnly: true,   // Prevent client-side JavaScript from accessing cookies
+        secure: process.env.NODE_ENV === 'production', // Enable secure cookies only in production
+        sameSite: 'lax',  // Helps protect against CSRF attacks while allowing navigation
+      },
   })
 );
 
