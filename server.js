@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(bodyParser.json());
 app.use(cors({
-    origin: 'https://e-store-frontend-pi.vercel.app',
+    origin: 'http://localhost:4200',
     credentials: true, // Allow cookies to be sent with requests
 }));
 // User Login API
@@ -43,20 +43,11 @@ app.use(
       cookie: {
         maxAge: 1000 * 60 * 60 * 24, // 1 day
         httpOnly: true,   // Prevent client-side JavaScript from accessing cookies
-        secure: true, // Enable secure cookies only in production
-        sameSite: 'None',  // Helps protect against CSRF attacks while allowing navigation
+        secure: false, // Enable secure cookies only in production
+        sameSite: 'lax',  // Helps protect against CSRF attacks while allowing navigation
       },
   })
 );
-
-// Handle preflight requests for CORS
-app.options('*', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', 'https://e-store-frontend-pi.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.status(204).end(); // No Content for preflight requests
-});
 
 
 // Connect to MongoDB
