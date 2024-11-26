@@ -71,6 +71,7 @@ function isAuthenticated(req, res, next) {
   }
   
   app.get('/auth-check', async (req, res) => {
+    console.log(req.session);
     if (req.session?.user?.id) {
       try {
         const database = client.db('e_store');
