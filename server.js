@@ -28,23 +28,27 @@ app.use(cors({
     origin: 'https://e-store-frontend-pi.vercel.app',
     credentials: true, // Allow cookies to be sent with requests
 }));
+// User Login API
 app.use(
-    session({
-        secret: process.env.SESSION_SECRET,
-        resave: false,
-        saveUninitialized: false,
-        store: MongoStore.create({
-            mongoUrl: process.env.MONGODB_URI,
-            collectionName: 'sessions',
-        }),
-        cookie: {
-          maxAge: 1000 * 60 * 60 * 24, // 1 day
-          httpOnly: false,
-          secure: false,
-          sameSite: 'lax',
-      },
-    })
+  session({
+      secret: process.env.SESSION_SECRET,
+      resave: true,  // Changed to true
+      saveUninitialized: false,
+      store: MongoStore.create({
+          mongoUrl: process.env.MONGODB_URI,
+          collectionName: 'sessions',
+          autoRemove: 'interval',
+          autoRemoveInterval: 10 // Remove expired sessions every 10 minutes
+      }),
+      cookie: {
+        maxAge: 1000 * 60 * 60 * 24, // 1 day
+        httpOnly: false,   // Changed to true
+        secure: false, // Conditionally set secure
+        sameSite: 'lax',
+    },
+  })
 );
+
 
 // Connect to MongoDB
 async function connectToMongoDB() {
@@ -70,44 +74,6 @@ function isAuthenticated(req, res, next) {
     }
   }
   
-  app.get('/auth-check', async (req, res) => {
-    console.log('Session in auth-check:', req.session); // Detailed logging
-    
-    if (req.session?.user?.id) {
-      try {
-        const database = client.db('e_store');
-        const users = database.collection('users');
-  
-        // Fetch the full user details from the database
-        const user = await users.findOne(
-          { _id: new ObjectId(req.session.user.id) }, 
-          { projection: { password: 0 } } // Exclude password
-        ); 
-
-        if (user) {
-          // Explicitly reconstruct the user object to send back
-          res.status(200).json({ 
-            user: { 
-              id: user._id, 
-              userName: user.userName, 
-              email: user.email, 
-              role: user.role 
-            } 
-          });
-        } else {
-          // If no user found, explicitly clear the session
-          req.session.destroy();
-          res.status(401).json({ message: 'User not found' });
-        }
-      } catch (error) {
-        console.error('Error in auth-check:', error);
-        req.session.destroy();
-        res.status(500).json({ message: 'Error authenticating user' });
-      }
-    } else {
-      res.status(401).json({ message: 'Not authenticated' });
-    }
-  });
 
   app.post('/register', async (req, res) => {
     const { userName, email, password, role = 'user' } = req.body;
@@ -144,51 +110,113 @@ function isAuthenticated(req, res, next) {
   });
   
 
-// User Login API
-app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ message: 'All fields are required' });
-    }
-
+app.get('/auth-check', async (req, res) => {
+  console.log('Session in auth-check:', req.session); // Detailed logging
+  
+  if (req.session?.user?.id) {
     try {
-        const database = client.db('e_store');
-        const users = database.collection('users');
+      const database = client.db('e_store');
+      const users = database.collection('users');
 
-        // Find the user by email
-        const user = await users.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: 'Invalid email or password' });
-        }
+      // Fetch the full user details from the database
+      const user = await users.findOne(
+        { _id: new ObjectId(req.session.user.id) }, 
+        { projection: { password: 0 } } // Exclude password
+      ); 
 
-        // Compare the provided password with the stored hashed password
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(400).json({ message: 'Invalid email or password' });
-        }
+      if (user) {
+        // Touch the session to extend its lifetime
+        req.session.touch();
 
-        // Store user data in the session
-        req.session.user = {
-            id: user._id,
-            role: user.role, // Store the user's role in the session
-        };
-
-        req.session.save((err) => {
-          if (err) {
-              console.error('Session save error:', err);
-              return res.status(500).json({ message: 'Session could not be saved' });
-          }
-          
-          console.log('Session after login:', req.session);
-          res.status(200).json({ message: 'Login successful', role: user.role });
-      });
+        // Explicitly reconstruct the user object to send back
+        res.status(200).json({ 
+          user: { 
+            id: user._id, 
+            userName: user.userName, 
+            email: user.email, 
+            role: user.role 
+          } 
+        });
+      } else {
+        // If no user found, explicitly clear the session
+        req.session.destroy();
+        res.status(401).json({ message: 'User not found' });
+      }
     } catch (error) {
-        console.error('Error logging in user:', error);
-        res.status(500).json({ message: 'Error logging in user' });
+      console.error('Error in auth-check:', error);
+      req.session.destroy();
+      res.status(500).json({ message: 'Error authenticating user' });
     }
+  } else {
+    res.status(401).json({ message: 'Not authenticated' });
+  }
 });
 
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+      const database = client.db('e_store');
+      const users = database.collection('users');
+
+      // Find the user by email
+      const user = await users.findOne({ email });
+      if (!user) {
+          return res.status(400).json({ message: 'Invalid email or password' });
+      }
+
+      // Compare the provided password with the stored hashed password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+          return res.status(400).json({ message: 'Invalid email or password' });
+      }
+
+      // Store user data in the session
+      req.session.user = {
+          id: user._id,
+          role: user.role,
+      };
+
+      // Regenerate the session to prevent session fixation
+      req.session.regenerate((err) => {
+          if (err) {
+              console.error('Session regeneration error:', err);
+              return res.status(500).json({ message: 'Session could not be regenerated' });
+          }
+
+          // Set user data again after regeneration
+          req.session.user = {
+              id: user._id,
+              role: user.role,
+          };
+
+          req.session.save((err) => {
+              if (err) {
+                  console.error('Session save error:', err);
+                  return res.status(500).json({ message: 'Session could not be saved' });
+              }
+              
+              console.log('Session after login:', req.session);
+              res.status(200).json({ 
+                  message: 'Login successful', 
+                  role: user.role,
+                  user: { 
+                      id: user._id, 
+                      role: user.role 
+                  } 
+              });
+          });
+      });
+  } catch (error) {
+      console.error('Error logging in user:', error);
+      res.status(500).json({ message: 'Error logging in user' });
+  }
+});
 // User Logout API
 app.post('/logout', (req, res) => {
     req.session.destroy((err) => {
