@@ -43,7 +43,7 @@ app.use(
       cookie: {
         maxAge: 1000 * 60 * 60 * 24, // 1 day
         httpOnly: false,   // Changed to true
-        secure: true, // Conditionally set secure
+        secure: false, // Conditionally set secure
         sameSite: 'lax',
     },
   })
