@@ -159,6 +159,8 @@ app.post('/login', async (req, res) => {
             role: user.role, // Store the user's role in the session
         };
 
+        console.log('Session after login:', req.session);
+
         res.status(200).json({ message: 'Login successful', role: user.role });
     } catch (error) {
         console.error('Error logging in user:', error);
