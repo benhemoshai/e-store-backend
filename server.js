@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(bodyParser.json());
 app.use(cors({
-    origin: 'http://localhost:4200',
+    origin: 'https://e-store-frontend-pi.vercel.app',
     credentials: true, // Allow cookies to be sent with requests
 }));
 // User Login API
@@ -43,7 +43,7 @@ app.use(
       cookie: {
         maxAge: 1000 * 60 * 60 * 24, // 1 day
         httpOnly: false,   // Changed to true
-        secure: false, // Conditionally set secure
+        secure: true, // Conditionally set secure
         sameSite: 'lax',
     },
   })
