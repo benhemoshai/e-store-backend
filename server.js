@@ -71,28 +71,43 @@ function isAuthenticated(req, res, next) {
   }
   
   app.get('/auth-check', async (req, res) => {
-    console.log(req.session);
+    console.log('Session in auth-check:', req.session); // Detailed logging
+    
     if (req.session?.user?.id) {
       try {
         const database = client.db('e_store');
         const users = database.collection('users');
   
         // Fetch the full user details from the database
-        const user = await users.findOne({ _id: new ObjectId(req.session.user.id) }, { projection: { password: 0 } }); // Exclude password
+        const user = await users.findOne(
+          { _id: new ObjectId(req.session.user.id) }, 
+          { projection: { password: 0 } } // Exclude password
+        ); 
+
         if (user) {
-          res.status(200).json({ user: { id: user._id, userName: user.userName, email: user.email, role: user.role } });
+          // Explicitly reconstruct the user object to send back
+          res.status(200).json({ 
+            user: { 
+              id: user._id, 
+              userName: user.userName, 
+              email: user.email, 
+              role: user.role 
+            } 
+          });
         } else {
-          res.status(404).json({ message: 'User not found' });
+          // If no user found, explicitly clear the session
+          req.session.destroy();
+          res.status(401).json({ message: 'User not found' });
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
-        res.status(500).json({ message: 'Error fetching user data' });
+        console.error('Error in auth-check:', error);
+        req.session.destroy();
+        res.status(500).json({ message: 'Error authenticating user' });
       }
     } else {
       res.status(401).json({ message: 'Not authenticated' });
     }
   });
-  
 
   app.post('/register', async (req, res) => {
     const { userName, email, password, role = 'user' } = req.body;
@@ -161,7 +176,15 @@ app.post('/login', async (req, res) => {
 
         console.log('Session after login:', req.session);
 
-        res.status(200).json({ message: 'Login successful', role: user.role });
+        req.session.save((err) => {
+          if (err) {
+              console.error('Session save error:', err);
+              return res.status(500).json({ message: 'Session could not be saved' });
+          }
+          
+          console.log('Session after login:', req.session);
+          res.status(200).json({ message: 'Login successful', role: user.role });
+      });
     } catch (error) {
         console.error('Error logging in user:', error);
         res.status(500).json({ message: 'Error logging in user' });
