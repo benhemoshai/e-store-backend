@@ -174,8 +174,6 @@ app.post('/login', async (req, res) => {
             role: user.role, // Store the user's role in the session
         };
 
-        console.log('Session after login:', req.session);
-
         req.session.save((err) => {
           if (err) {
               console.error('Session save error:', err);
