@@ -43,7 +43,7 @@ app.use(
       cookie: {
         maxAge: 1000 * 60 * 60 * 24, // 1 day
         httpOnly: true,   // Prevent client-side JavaScript from accessing cookies
-        secure: process.env.NODE_ENV === 'production', // Enable secure cookies only in production
+        secure: false, // Enable secure cookies only in production
         sameSite: 'lax',  // Helps protect against CSRF attacks while allowing navigation
       },
   })
