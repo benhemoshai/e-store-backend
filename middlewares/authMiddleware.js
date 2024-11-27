@@ -1,4 +1,5 @@
 export function isAdmin(req, res, next) {
+    console.log('Session data in isAdmin:', req.session);
     if (req.session?.user?.role === 'admin') {
       console.log('Admin access granted:', req.session.user); // Log admin details
       next();
