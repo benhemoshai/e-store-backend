@@ -13,9 +13,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(bodyParser.json());
-app.use(cors({ origin: process.env.FRONTEND_URL || 'https://e-store-frontend-pi.vercel.app', credentials: true }));
-app.use(sessionConfig);
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:4200',
+  credentials: true
+}));
+
+app.use(bodyParser.json()); // You can keep this or use express.json() instead
+
+app.use(sessionConfig); // ✅ Session must come AFTER CORS and BEFORE routes!
+
 
 // Routes
 app.use('/auth', authRoutes);

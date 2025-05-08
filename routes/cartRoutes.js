@@ -9,7 +9,7 @@ const router = express.Router();
 // Cart API - Get cart items for the logged-in user
 router.get('/', isAuthenticated, async (req, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._id;
       const database = client.db('e_store');
       const cart = database.collection('cart');
       const cartItems = await cart.find({ userId: new ObjectId(userId) }).toArray();
@@ -22,7 +22,7 @@ router.get('/', isAuthenticated, async (req, res) => {
   
   // Cart API - Add or update item in the cart for the logged-in user
   router.post('/', isAuthenticated, async (req, res) => {
-    const userId = req.session.user.id;
+    const userId = req.session.user._id;
     const cartItem = req.body;
     const productId = cartItem.product._id;
   
@@ -55,7 +55,7 @@ router.get('/', isAuthenticated, async (req, res) => {
   
   // Cart API - Update quantity for a specific item in the user's cart
   router.put('/:id', isAuthenticated, async (req, res) => {
-    const userId = req.session.user.id;
+    const userId = req.session.user._id;
     const { id } = req.params;
     const updatedCartItem = req.body;
   
@@ -81,7 +81,7 @@ router.get('/', isAuthenticated, async (req, res) => {
   
   // Cart API - Delete specific item from the user's cart
   router.delete('/:id', isAuthenticated, async (req, res) => {
-    const userId = req.session.user.id;
+    const userId = req.session.user._id;
     const { id } = req.params;
   
     try {
@@ -118,16 +118,17 @@ router.get('/', isAuthenticated, async (req, res) => {
   });
 
 // Checkout API - Moves items from the cart to orders
-router.post('/checkout', async (req, res) => {
+router.post('/checkout', isAuthenticated, async (req, res) => {
     try {
-      const userId = req.session?.user?.id; // Get the logged-in user's ID
+      const userId = req.session.user._id;
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized. Please log in.' });
       }
-  
+
       const database = client.db('e_store');
       const cart = database.collection('cart');
       const orders = database.collection('orders');
+      const users = database.collection('users');
   
       // Get the user's cart items
       const cartItems = await cart.find({ userId: new ObjectId(userId) }).toArray();
@@ -135,7 +136,7 @@ router.post('/checkout', async (req, res) => {
       if (cartItems.length === 0) {
         return res.status(400).json({ message: 'Cart is empty. Cannot checkout.' });
       }
-  
+      
       // Create orders from cart items
       const orderDocuments = cartItems.map(item => ({
         userId: new ObjectId(userId),
@@ -145,6 +146,12 @@ router.post('/checkout', async (req, res) => {
         created_at: new Date(),
         status: 'Pending' // Add the status field with "Pending" value
       }));
+
+      await users.updateOne(
+        { _id: new ObjectId(userId) },
+        { $push: { purchasedProducts: { $each: orderDocuments.map(item => item.productId) } } }
+      );
+      
   
       // Insert orders into the orders collection
       await orders.insertMany(orderDocuments);
